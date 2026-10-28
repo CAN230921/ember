@@ -13,9 +13,21 @@ import torch
 _LIBRARIES = {
     'gemm': ('_C_stable_libtorch.abi3.so', '_C', 'cutlass_scaled_mm'),
     'router': ('_moe_C_stable_libtorch.abi3.so', '_moe_C', 'topk_softmax'),
-    'qsa_topk': ('/opt/llm/kernel-det/_C_det.so', '_C_det', 'persistent_topk'),
+    'qsa_topk': ('_C_det.so', '_C_det', 'persistent_topk'),
 }
 _loaded_paths = {}
+
+
+def library_candidates(kind):
+    """Configured paths take precedence, including for the QSA extension."""
+    filename = _LIBRARIES[kind][0]
+    configured = os.environ.get('ENGINE_NATIVE_KERNEL_DIR')
+    directories = ([Path(configured)] if configured else [])
+    directories += [Path(entry) / 'vllm' for entry in sys.path if entry]
+    if kind == 'qsa_topk':
+        directories += [Path(__file__).resolve().parents[2] / 'native',
+                        Path('/opt/llm/kernel-det')]
+    return [directory / filename for directory in directories]
 
 
 @lru_cache(maxsize=3)
@@ -25,14 +37,10 @@ def load_operator(kind):
     try:
         operator = getattr(ops, name)
     except AttributeError:
-        configured = os.environ.get('ENGINE_NATIVE_KERNEL_DIR')
-        directories = ([Path(configured)] if configured else
-                       [Path(entry) / 'vllm' for entry in sys.path if entry])
-        library = next((directory / filename for directory in directories
-                        if (directory / filename).is_file()), None)
+        library = next((path for path in library_candidates(kind) if path.is_file()), None)
         if library is None:
-            raise RuntimeError(f'Pinned native kernel library {filename} not found; '
-                               'use image 46b88ebfb9d8 or ENGINE_NATIVE_KERNEL_DIR')
+            raise RuntimeError(f'Native kernel library {filename} not found; '
+                               'build the documented native operators or set ENGINE_NATIVE_KERNEL_DIR')
         torch.ops.load_library(str(library))
         operator = getattr(ops, name)
         _loaded_paths[kind] = str(library.resolve())

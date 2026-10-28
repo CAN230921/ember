@@ -8,3 +8,4 @@ for name in fp8_quant int8_head int8_head_rows_v2 int8_head_three shared_epilogu
   nvcc -std=c++17 -O3 -arch=sm_121 --shared -Xcompiler -fPIC \
     "$ops/${name}_sm121.cu" -o "$ops/lib${name}_sm121.so"
 done
+python3 "$(dirname "$0")/build_qsa.py"

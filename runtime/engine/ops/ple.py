@@ -56,7 +56,7 @@ class PLERef(nn.Module):
         elif embeddings.dtype==torch.uint8:   # INT4 g32 / ternary table rows
             embeddings=dequant_rows(embeddings,self.table.format,float(self.embedding_scale.float())).to(hidden.dtype)
         def project(weight):
-            from .row_gemv import per_row_linear
+            from .row_linear import per_row_linear
             return (per_row_linear(embeddings,weight)
                     if return_prefixes and per_row(embeddings.shape[0]) else F.linear(embeddings,weight))
         key=project(self.key).reshape(-1,self.count,self.hidden)

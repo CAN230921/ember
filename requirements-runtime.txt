@@ -1,0 +1,9 @@
+# Install into a compatible GB10 vLLM image; keep its Torch/Triton/native ABI.
+fastapi==0.136.3
+uvicorn==0.52.4
+jsonschema==4.26.0
+numpy==2.2.6
+safetensors==0.8.0
+transformers==5.15.1
+flashinfer-python==0.6.17
+nvidia-cutlass-dsl[cu13]==4.7.1

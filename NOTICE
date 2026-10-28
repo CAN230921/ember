@@ -13,3 +13,8 @@ This product includes software developed by third parties:
 
 At runtime the engine loads compiled operators from vLLM (Apache License 2.0)
 and uses NVIDIA CUTLASS / CuTe DSL; these are not redistributed here.
+
+runtime/native/ contains a standalone deterministic persistent_topk extension
+derived from vLLM (Apache License 2.0), copyright contributors to the vLLM
+project. Ember changes provide deterministic selection and a separate stable
+PyTorch ABI namespace. CUDA/CUB and PyTorch headers are external dependencies.

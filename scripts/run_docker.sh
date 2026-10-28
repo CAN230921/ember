@@ -15,13 +15,26 @@ set -euo pipefail
 : "${IMAGE:?}" "${MODEL_DIR:?}" "${DFLASH_DIR:?}" "${KEY_FILE:?}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 workspace="${WORKSPACE:-$repo/workspace}"
-lab="$workspace/lab-$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -p "$workspace/logs/api" "$workspace/cache/triton" "$lab"
+mkdir -p "$workspace/logs/api" "$workspace/cache/triton"
+workspace="$(cd "$workspace" && pwd)"
+lab="$(mktemp -d "$workspace/lab-XXXXXXXX")"
+[[ -d "$MODEL_DIR" && -d "$DFLASH_DIR" && -s "$KEY_FILE" ]] || { echo 'Check MODEL_DIR, DFLASH_DIR and KEY_FILE' >&2; exit 1; }
+if docker inspect "${NAME:-ember}" >/dev/null 2>&1; then echo 'Container name already exists; choose another NAME' >&2; exit 1; fi
+if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then echo 'GPU already has a compute workload' >&2; exit 1; fi
+baseline_swap="$(python3 - <<'PY'
+from pathlib import Path
+m={k:int(v.split()[0]) for k,v in (x.split(':',1) for x in Path('/proc/meminfo').read_text().splitlines())}
+if m['MemAvailable']<110*1024**2:raise SystemExit('Insufficient initial memory headroom')
+print(m['SwapTotal']-m['SwapFree'])
+PY
+)"
 
 config_mount=()
 if [[ -n "${MODEL_CONFIG:-}" ]]; then config_mount=(-v "$MODEL_CONFIG:/model/config.json:ro"); fi
+deps_mount=()
+if [[ -n "${CUTLASS_ROOT:-}" ]]; then deps_mount=(-v "$CUTLASS_ROOT:/deps:ro" -e SPARK_CUTLASS_DSL_DIR=/deps/nvidia_cutlass_dsl/dsl_packages); fi
 
-exec docker run -d --name "${NAME:-ember}" --restart no --gpus all --ipc=host \
+cid="$(docker run -d --name "${NAME:-ember}" --label io.ember.engine=true --restart no --gpus all --ipc=host \
   --memory 96g --memory-swap 96g --stop-timeout 30 \
   -p "${BIND:-127.0.0.1}:${PORT:-8000}:8000" \
   -e PYTHONPATH=/runtime -e PYTHONDONTWRITEBYTECODE=1 -e OMP_NUM_THREADS=4 \
@@ -43,5 +56,23 @@ exec docker run -d --name "${NAME:-ember}" --restart no --gpus all --ipc=host \
   -e SPARK_DRAFT_VOCAB_SHA256=31261e3a17c360f86bf5b43bb087739935f63527ef9cc4e40e38ddde9dcc8a64 \
   -v "$repo/runtime:/runtime:ro" -v "$workspace:/workspace" -v "$lab:/lab" \
   -v "$MODEL_DIR:/model:ro" "${config_mount[@]}" -v "$DFLASH_DIR:/dflash:ro" \
+  "${deps_mount[@]}" \
   -v "$KEY_FILE:/secrets/api.key:ro" \
-  -w /runtime --entrypoint python3 "$IMAGE" -u -m serve
+  -w /runtime --entrypoint python3 "$IMAGE" -u -m serve)"
+python3 - "$repo/scripts/watch_memory.py" "$cid" "$baseline_swap" "$lab/guard.ready" "$lab/guard.log" <<'PY'
+import subprocess,sys,time
+from pathlib import Path
+script,cid,swap,ready,log=sys.argv[1:]
+try:
+ with open(log,'xb') as stream:
+  process=subprocess.Popen([sys.executable,script,cid,swap,ready],stdout=stream,stderr=stream,stdin=subprocess.DEVNULL,start_new_session=True)
+ for _ in range(50):
+  if process.poll() is not None:raise RuntimeError('Memory guard exited during startup')
+  if Path(ready).exists():break
+  time.sleep(.2)
+ else:raise RuntimeError('Memory guard startup timeout')
+except BaseException:
+ subprocess.run(['docker','stop','--timeout','30',cid],check=True,timeout=45)
+ raise
+print(cid)
+PY

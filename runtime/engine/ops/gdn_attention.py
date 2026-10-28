@@ -43,7 +43,7 @@ class GDNRef(nn.Module):
         # M=2 selects a different cuBLAS BA projection and changes a near-zero
         # BF16 value on real inputs. Keep the tiny gate projection's ordinary
         # per-token arithmetic while sharing the large FP8 weight traversal.
-        from .row_gemv import per_row_linear
+        from .row_linear import per_row_linear
         ba=per_row_linear(x,self.ba) if per_row(x.shape[0]) and preserve_rows else F.linear(x,self.ba)
         return self.qkvz_linear(x),ba
 

@@ -228,7 +228,7 @@ class QSARef(nn.Module):
         # The BF16 indexer chooses a different GEMM for two rows. Its tiny
         # decode projection stays rowwise so compressed-history bytes remain
         # identical to ordinary decoding, including a rejected draft prefix.
-        from .row_gemv import per_row_linear
+        from .row_linear import per_row_linear
         projected=(per_row_linear(x,self.index_qk)
                    if per_row(x.shape[0]) and state.length>0 and not prefill_chunk else F.linear(x,self.index_qk))
         q,raw=projected.split((heads*dim,dim),-1)

@@ -1,5 +1,7 @@
 # Benchmarks
 
+These are historical results of the original frozen v30 runtime, before the public Ember packaging. They are retained as reference, not presented as a fresh measurement of release 0.1.1. Package-specific checks are in [VALIDATION.md](VALIDATION.md).
+
 All numbers were measured on one NVIDIA DGX Spark (GB10), one engine at a time with the GPU otherwise idle.
 
 ## Agent workload
@@ -21,7 +23,7 @@ python3 benchmarks/agent_suite.py --port 8000 --model <model-id> --key-file <key
 
 ### Throughput (tok/s, sum across lanes)
 
-| Concurrency | Ember | vLLM (dev build) | llama.cpp |
+| Concurrency | v30 baseline | vLLM (dev build) | llama.cpp |
 | --- | ---: | ---: | ---: |
 | 1 | **40.1** | 32.8 | 23.1 |
 | 2 | **46.4** | 37.2 | 22.5 |
@@ -31,7 +33,7 @@ Total completion tokens divided by the summed wall time of the concurrent batche
 
 ### Scenario wall time (seconds, median of two)
 
-| Scenario | Ember ×1 | vLLM ×1 | llama ×1 | Ember ×4 | vLLM ×4 | llama ×4 |
+| Scenario | v30 ×1 | vLLM ×1 | llama ×1 | v30 ×4 | vLLM ×4 | llama ×4 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | `patch_loop` | **6.44** | 10.75 | 9.73 | **13.27** | 20.55 | 28.29 |
 | `inspect` | **8.61** | 10.29 | 11.00 | 17.44 | 19.71 | **16.03** |
@@ -46,7 +48,7 @@ The engines take different paths: single-lane `patch_loop` used 4 model calls / 
 
 ## Configurations
 
-| | Ember | vLLM | llama.cpp |
+| | v30 baseline | vLLM | llama.cpp |
 | --- | --- | --- | --- |
 | Target weights | converted NVFP4 checkpoint, Top10 | same checkpoint, with a PLE mmap adapter | same checkpoint converted to GGUF (FP8 and ternary PLE expanded to F32) |
 | Drafter | MTP + DFlash2 | MTP, 2 tokens | MTP, 2 tokens |

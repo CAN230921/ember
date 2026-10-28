@@ -80,7 +80,7 @@ class MoERef(nn.Module):
         self.resident_experts = False
 
     def route(self, x,preserve_rows=False):
-        from .row_gemv import per_row_linear
+        from .row_linear import per_row_linear
         logits = (per_row_linear(x,self.router)
                   if per_row(x.shape[0]) and preserve_rows else F.linear(x,self.router))
         if self.router_backend=='native':

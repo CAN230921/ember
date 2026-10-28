@@ -4,7 +4,7 @@ A hand-written inference engine for **Qwen3.8 Flash Next** on **NVIDIA DGX Spark
 
 [中文说明](README.zh-CN.md)
 
-> **Status: 0.1.0, experimental.** This is a research release for one model on one GPU. The numbers below were measured on a single DGX Spark; the full quality suite and the four-lane 262K-context capacity test have not been re-run on this exact package.
+> **Status: 0.1.1, experimental.** This is a research release for one model on one GPU. Historical performance numbers below come from the original v30 runtime. Package-specific checks are recorded in [docs/VALIDATION.md](docs/VALIDATION.md); the full quality suite and four-lane 262K capacity gate remain open.
 
 ## Highlights
 
@@ -12,16 +12,18 @@ A hand-written inference engine for **Qwen3.8 Flash Next** on **NVIDIA DGX Spark
 | --- | --- |
 | Speculative decoding | Native MTP head plus a DFlash2 block drafter (NVFP4 weights, fused Triton kernels), a cost-model chooser between them, and 8-row single-lane verification |
 | MoE | SM121 W4A4 routed-expert MoE (NVFP4 activations × NVFP4 weights, CuTe DSL), deterministic tactic table, row-GEMV fusion for router and indexer |
-| Concurrency | Four lanes with continuous batching; MTP target and draft passes are batched across lanes and time; 262,144 tokens per lane, 1,048,576 shared |
+| Concurrency | Four lanes with continuous batching; MTP target and draft passes are batched across lanes and time; configured limits of 262,144 tokens per lane and 1,048,576 shared (full capacity unvalidated) |
 | State and cache | Accepted-only GDN state cloning, request-private state arena, CUDA graphs reading request state through indirect descriptors, multi-branch copy-on-write prefix cache |
 | Kernels | Hand-written CUDA (INT8 output head, FP8 quantization, shared epilogue) and Triton (GDN, QSA sparse attention, hyper-connections, KV, DFlash) |
 | Serving | Reasoning budgets (low / medium / high), repetition guard, tool-schema validation, cancellation, bounded queue |
 
 ## Performance
 
+These are **historical v30 baseline results**, measured before the public packaging changes; they are not a new benchmark of this release.
+
 Same DGX Spark, same converted checkpoint, same synthetic Agent workload (multi-step tool use, temperature 0, reasoning off, up to 1024 output tokens per call). Throughput is total completion tokens over wall time, median of two runs, summed across lanes.
 
-| Concurrency | Ember | vLLM (dev build) | llama.cpp |
+| Concurrency | v30 baseline | vLLM (dev build) | llama.cpp |
 | --- | ---: | ---: | ---: |
 | 1 | **40.1** tok/s | 32.8 | 23.1 |
 | 2 | **46.4** | 37.2 | 22.5 |
@@ -39,20 +41,28 @@ Caveats: the three engines use different drafters, caches and context limits, an
   - target: `nvidia/Qwen3.8-Flash-Next-NVFP4` converted to this engine's layout (ternary PLE table, FP8 projections and INT8 output head re-derived from the official BF16 weights, Top10 + shared-expert config);
   - drafter: `incoai/Qwen3.8-Flash-Next-DFlash2`, quantized to NVFP4 at load.
 
-  **The conversion tools are not part of 0.1.0 yet**, so the engine cannot be run from the public checkpoint alone today.
+  Convert the original checkpoint with [`tools/convert_checkpoint.py`](tools/convert_checkpoint.py); see [docs/WEIGHTS.md](docs/WEIGHTS.md). The source directory is never overwritten.
+
+The compatible base-image/native-operator ABI is still a requirement; no public prebuilt image is validated or distributed. Exact reference versions, the optional environment Dockerfile and environment checker are documented in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
 
 ## Quick start
 
 ```bash
-# 1. Build the CUDA kernels (on the GB10)
-scripts/build_kernels.sh
-
-# 2. Check that the optimizers install (no weights loaded)
-SPARK_LAB_DIR=$(mktemp -d) python3 -m serve --check-install   # run inside runtime/ in the image
-
-# 3. Serve
-IMAGE=... MODEL_DIR=... DFLASH_DIR=... KEY_FILE=... scripts/run_docker.sh
+# Use a compatible GB10 vLLM image (see docs/ENVIRONMENT.md).
+export IMAGE='your-compatible-GB10-image:tag'
+# Build all engine kernels and the bundled deterministic QSA extension.
+docker run --rm -v "$PWD:/repo" -w /repo --entrypoint bash "$IMAGE" scripts/build_kernels.sh
+# Check dependencies/files (no weights or GPU needed).
+docker run --rm -v "$PWD:/repo:ro" -w /repo --entrypoint python3 "$IMAGE" scripts/check_environment.py
+# Convert the official target checkpoint as described in docs/WEIGHTS.md.
+# Serve with read-only weights and a private API key file.
+MODEL_DIR=... DFLASH_DIR=... KEY_FILE=... bash scripts/run_docker.sh
 ```
+
+The launcher refuses an occupied GPU or reused container name and starts a
+host-memory guard tied to its newly created, labelled container. It requires
+110 GiB initial available RAM and stops that container below 20 GiB available
+or on excessive swap growth. It never stops unrelated containers.
 
 The server listens on port 8000 in the container and requires `Authorization: Bearer <key>`. Endpoints: `/v1/models`, `/v1/chat/completions` (streaming and tools), `/v1/scheduler`.
 
@@ -78,10 +88,10 @@ docs/                      benchmark details
 ## Tests
 
 ```bash
-cd runtime && python3 -m unittest discover -p 'test_*.py'
+bash scripts/test.sh
 ```
 
-Most tests run on CPU but need the image's PyTorch, Triton and tokenizer; tests that need a real tokenizer read `SPARK_TEST_TOKENIZER_DIR` and are skipped without it. CPU tests do not prove GPU numerics or end-to-end speed.
+pytest collects both unittest classes and function-style tests. Install `requirements-test.txt` into the compatible environment. Most tests run on CPU but need the image's PyTorch, Triton and tokenizer; tests that need a real tokenizer read `SPARK_TEST_TOKENIZER_DIR` and are skipped without it. CPU tests do not prove GPU numerics or end-to-end speed.
 
 ## License
 

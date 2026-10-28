@@ -1,0 +1,9 @@
+.git
+.venv
+workspace
+**/__pycache__
+**/*.so
+**/*.key
+**/.env*
+**/*.safetensors
+**/*.gguf

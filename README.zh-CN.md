@@ -1,6 +1,6 @@
 # Ember
 
-为 **NVIDIA DGX Spark（GB10，SM121）** 手写的 **Qwen3.8 Flash Next** 推理引擎，提供 OpenAI 兼容的 HTTP/SSE 接口，支持工具调用和思考预算。
+面向 **NVIDIA DGX Spark（GB10，SM121）** 的 **Qwen3.8 Flash Next** 推理引擎，提供 OpenAI 兼容的 HTTP/SSE 接口，支持工具调用和思考预算。
 
 [English](README.md)
 
@@ -14,7 +14,7 @@
 | MoE | SM121 W4A4 路由专家 MoE（NVFP4 激活 × NVFP4 权重，CuTe DSL），确定性 tactic 表，router/indexer 逐行 GEMV 合并 |
 | 并发 | 四路连续批处理，MTP 目标和草稿跨路、跨时间合批；逻辑配置上限每路 262,144 token、共享 1,048,576；满容量未验收 |
 | 状态与缓存 | GDN 状态只克隆被接受部分、请求私有状态 arena、CUDA Graph 通过间接描述符读请求状态、多分支写时复制前缀缓存 |
-| 内核 | 手写 CUDA（INT8 输出头、FP8 量化、共享 epilogue）与 Triton（GDN、QSA 稀疏注意力、超连接、KV、DFlash） |
+| 内核 | CUDA（INT8 输出头、FP8 量化、共享 epilogue）与 Triton（GDN、QSA 稀疏注意力、超连接、KV、DFlash） |
 | 服务 | 思考预算（low/medium/high）、防重复、工具 Schema 校验、取消、有界队列 |
 
 ## 性能

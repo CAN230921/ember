@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the hand-written SM121 CUDA kernels next to their Python loaders.
+# Build the SM121 CUDA kernels next to their Python loaders.
 # Run on the GB10 (or any host with an SM121-capable nvcc).
 set -euo pipefail
 ops="$(cd "$(dirname "$0")/../runtime/engine/ops" && pwd)"

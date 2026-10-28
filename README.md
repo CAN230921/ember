@@ -1,6 +1,6 @@
 # Ember
 
-A hand-written inference engine for **Qwen3.8 Flash Next** on **NVIDIA DGX Spark (GB10, SM121)**, serving an OpenAI-compatible HTTP/SSE API with tool calls and reasoning budgets.
+An inference engine for **Qwen3.8 Flash Next** on **NVIDIA DGX Spark (GB10, SM121)**, serving an OpenAI-compatible HTTP/SSE API with tool calls and reasoning budgets.
 
 [中文说明](README.zh-CN.md)
 
@@ -14,7 +14,7 @@ A hand-written inference engine for **Qwen3.8 Flash Next** on **NVIDIA DGX Spark
 | MoE | SM121 W4A4 routed-expert MoE (NVFP4 activations × NVFP4 weights, CuTe DSL), deterministic tactic table, row-GEMV fusion for router and indexer |
 | Concurrency | Four lanes with continuous batching; MTP target and draft passes are batched across lanes and time; configured limits of 262,144 tokens per lane and 1,048,576 shared (full capacity unvalidated) |
 | State and cache | Accepted-only GDN state cloning, request-private state arena, CUDA graphs reading request state through indirect descriptors, multi-branch copy-on-write prefix cache |
-| Kernels | Hand-written CUDA (INT8 output head, FP8 quantization, shared epilogue) and Triton (GDN, QSA sparse attention, hyper-connections, KV, DFlash) |
+| Kernels | CUDA (INT8 output head, FP8 quantization, shared epilogue) and Triton (GDN, QSA sparse attention, hyper-connections, KV, DFlash) |
 | Serving | Reasoning budgets (low / medium / high), repetition guard, tool-schema validation, cancellation, bounded queue |
 
 ## Performance

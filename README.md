@@ -4,7 +4,7 @@ A hand-written inference engine for **Qwen3.8 Flash Next** on **NVIDIA DGX Spark
 
 [中文说明](README.zh-CN.md)
 
-> **Status: 0.1.1, experimental.** This is a research release for one model on one GPU. Historical performance numbers below come from the original v30 runtime. Package-specific checks are recorded in [docs/VALIDATION.md](docs/VALIDATION.md); the full quality suite and four-lane 262K capacity gate remain open.
+> **Status: 0.1.2, experimental.** This is a research release for one model on one GPU. Historical performance numbers below come from the original v30 runtime. Package-specific checks are recorded in [docs/VALIDATION.md](docs/VALIDATION.md); the full quality suite and four-lane 262K capacity gate remain open.
 
 ## Highlights
 

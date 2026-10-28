@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 — 2026-10-28 (experimental)
+
+- Point setup-python pip caching at `requirements-test.txt`; the first GitHub
+  workflow failed during cache setup before installing dependencies or tests.
+- Preserve the already published 0.1.1 tag. Runtime and converter code are
+  unchanged from the SM121-validated 0.1.1 snapshot.
+
 ## 0.1.1 — 2026-10-28 (experimental)
 
 - Honor the native-kernel directory override for deterministic QSA selection;

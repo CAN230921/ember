@@ -1,4 +1,4 @@
-# Release validation — 0.1.1 experimental
+# Release validation — 0.1.2 experimental
 
 Checks performed on 2026-10-28. This is an experimental source release, not a
 production deployment approval. SGLang model containers were stopped only after
@@ -45,6 +45,11 @@ regression or replaced with a claimed pass. The first isolated macOS CPU suite
 also exposed 11 eager Triton-import failures. Moving the CPU reference path
 behind a device-aware row-linear helper resolved them; the subsequent complete
 local collection produced the 622-pass result above.
+
+The first GitHub Actions job failed during setup-python cache discovery, before
+dependency installation or tests. Version 0.1.2 explicitly points cache discovery
+at `requirements-test.txt`; runtime and converter code are unchanged from the
+SM121-validated snapshot. The failed 0.1.1 job and tag are retained.
 
 ## What has not been established
 

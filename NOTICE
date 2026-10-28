@@ -1,0 +1,15 @@
+Ember
+Copyright 2026 CAN230921
+
+This product includes software developed by third parties:
+
+- flash-linear-attention chunk kernels (runtime/engine/vendor/fla/), taken from
+  vLLM's third_party/flash_linear_attention. Apache License 2.0 and MIT License;
+  see the license files and NOTICE.md in that directory.
+
+- runtime/moe_upfirst.py, derived from FlashInfer.
+  Copyright (c) 2026 by FlashInfer team. Apache License 2.0. Modified by the
+  Ember authors as noted in the file header.
+
+At runtime the engine loads compiled operators from vLLM (Apache License 2.0)
+and uses NVIDIA CUTLASS / CuTe DSL; these are not redistributed here.

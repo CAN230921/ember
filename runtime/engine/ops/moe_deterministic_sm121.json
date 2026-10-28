@@ -1,0 +1,34 @@
+{
+  "_metadata": {
+    "flashinfer_version": "0.6.17",
+    "cuda_version": "13.0",
+    "cublas_version": "13.1.1",
+    "cudnn_version": "92000",
+    "cudnn_frontend_version": "1.27.0",
+    "gpu": "NVIDIA GB10"
+  },
+  "('gb10_sm121_nvfp4_top5_deterministic_v1::gemm1', 'MoERunner', ((1, 1280), (512, 1280, 160), (0,), (512, 2560, 40), (0,)), ())": [
+    "MoERunner",
+    18
+  ],
+  "('gb10_sm121_nvfp4_top5_deterministic_v1::gemm1', 'MoERunner', ((2, 1280), (512, 1280, 160), (0,), (512, 2560, 40), (0,)), ())": [
+    "MoERunner",
+    16
+  ],
+  "('gb10_sm121_nvfp4_top5_deterministic_v1::gemm1', 'MoERunner', ((3, 1280), (512, 1280, 160), (0,), (512, 2560, 40), (0,)), ())": [
+    "MoERunner",
+    16
+  ],
+  "('gb10_sm121_nvfp4_top5_deterministic_v1::gemm2', 'MoERunner', ((1, 1280), (512, 1280, 160), (0,), (512, 2560, 40), (0,)), ())": [
+    "MoERunner",
+    37
+  ],
+  "('gb10_sm121_nvfp4_top5_deterministic_v1::gemm2', 'MoERunner', ((2, 1280), (512, 1280, 160), (0,), (512, 2560, 40), (0,)), ())": [
+    "MoERunner",
+    37
+  ],
+  "('gb10_sm121_nvfp4_top5_deterministic_v1::gemm2', 'MoERunner', ((3, 1280), (512, 1280, 160), (0,), (512, 2560, 40), (0,)), ())": [
+    "MoERunner",
+    36
+  ]
+}

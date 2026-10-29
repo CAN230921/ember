@@ -100,6 +100,7 @@ class GreedyEngineRef(nn.Module):
         return output.float()
 
     def forward(self,input_ids,state=None,observer=None,return_hidden=False,return_prefixes=False,prefill_chunk=False,borrowed_graph_cache=False,owned_graph_cache=False,lazy_prefixes=False):
+        self.discard_verification()
         ids=[int(token) for token in input_ids]
         if not ids:raise ValueError('Expected at least one token')
         if any(token<0 or token>=self.config['vocab_size'] for token in ids):raise ValueError('Token is outside checkpoint vocabulary')
@@ -199,6 +200,31 @@ class GreedyEngineRef(nn.Module):
         # must materialize the committed prefix (batch_mtp_model.materialize_views) before any graph replays again.
         return self(input_ids,state,observer,return_hidden=True,return_prefixes=True,borrowed_graph_cache=borrowed_graph_cache,
             lazy_prefixes=lazy_prefixes)
+
+    def discard_verification(self):
+        pending=getattr(self,'_pending_verification',None)
+        if pending is not None:
+            pending.discard()
+
+    def verify_deferred(self,input_ids,state,observer=None):
+        """Explicit experimental API; commit/discard before another model call.
+
+        A subsequent model call invalidates any uncommitted transaction. Only
+        consumed input prefixes are committed; the last predicted token stays
+        unconsumed, as in verify_tokens. Existing serving paths are unchanged.
+        """
+        from .verification import verify_linear
+        return verify_linear(self,input_ids,state,observer)
+
+    def verify_tree_reference(self,tree,state):
+        """Experimental correctness oracle: expands paths, recomputes ancestors."""
+        from .tree_verification import verify_tree_reference
+        return verify_tree_reference(self,tree,state)
+
+    def verify_tree(self,tree,state,observer=None):
+        """Opt-in eager unique-node tree prototype; existing serving is unchanged."""
+        from .tree_model import verify_tree
+        return verify_tree(self,tree,state,observer)
 
     @torch.no_grad()
     def generate(self,prompt_ids,max_tokens=8):

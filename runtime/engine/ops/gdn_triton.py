@@ -138,7 +138,7 @@ def _gated_norm(X,Z,W,Y,SZ:tl.constexpr,EPS:tl.constexpr,SIGMOID:tl.constexpr,
 @tr.jit
 def _decode(X,A,B,ALOG,BIAS,S,UPDATED,O,T:tl.constexpr=1,
             SA:tl.constexpr=48,SB:tl.constexpr=48,PREFIX=None,
-            CAPTURE_PREFIX:tl.constexpr=False):
+            CAPTURE_PREFIX:tl.constexpr=False,STORE_FINAL:tl.constexpr=True):
     head=tl.program_id(1); key_head=head//3
     kdim=tl.arange(0,128); vdim=tl.program_id(0)*32+tl.arange(0,32)
     alog=tl.load(ALOG+head).to(tl.float32)
@@ -169,7 +169,8 @@ def _decode(X,A,B,ALOG,BIAS,S,UPDATED,O,T:tl.constexpr=1,
         # tokens. The next row must observe exactly that materialization.
         if row+1<T:
             updated=updated.to(S.dtype.element_ty).to(tl.float32)
-    tl.store(UPDATED+offset,updated)
+    if STORE_FINAL:
+        tl.store(UPDATED+offset,updated)
 
 
 def run_core(model,qkvz,ba,state,prefill,return_prefixes=False):

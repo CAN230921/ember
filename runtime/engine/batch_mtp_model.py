@@ -229,6 +229,8 @@ class BatchMTPModel:
     def verify(self, input_ids, states, observer=None):
         """observer(layer_index, (hidden, block, injection)) sees every layer's output rows (all lanes,
         concatenated in lane order), as the single-lane engine's observer does."""
+        discard=getattr(self.engine,'discard_verification',None)
+        if discard is not None:discard()
         lengths = [len(ids) for ids in input_ids]; sections = spans(lengths)
         if len(states) != len(sections) or len({id(s) for s in states}) != len(states):
             raise ValueError('Batch requires distinct private states')

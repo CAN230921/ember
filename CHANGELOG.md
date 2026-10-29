@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Add optional `SPECULATION=tree` serving, with best-first DFlash proposals,
+  private BF16 parent states and explicit commit/discard ownership. The default
+  remains MTP; the switch is selected at startup.
+- Preserve the existing prefill cache, scheduler, tool/SSE framing, reasoning
+  controls and cancellation. Tree lanes run cooperatively; linear chains reuse
+  the original graph verifier.
+- Bound PLE hash history and add numerical, ownership and service tests. See
+  `docs/TREE-VERIFICATION.md` for measured scope and remaining acceptance gates.
+
 ## 0.1.2 — 2026-10-28 (experimental)
 
 - Fix the GitHub Actions pip cache: point setup-python at `requirements-test.txt`.

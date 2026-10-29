@@ -40,6 +40,8 @@ def install():
     from engine.batch_mtp_model import BatchMTPModel
     original=MoERef.packed_forward
     original_forward=GreedyEngineRef.forward
+    original_deferred=GreedyEngineRef.verify_deferred
+    original_tree=GreedyEngineRef.verify_tree
     original_batch=BatchMTPModel.verify
     def packed(m,x,weights,ids,active_experts=None,activation_quant=None):
         eligible=(DECODE and MODE=='candidate' and 1<=x.shape[0]<=12 and x.shape[1]==2560
@@ -69,8 +71,20 @@ def install():
         before=DECODE;DECODE=True
         try:return original_batch(m,*args,**kwargs)
         finally:DECODE=before
+    def deferred(m,*args,**kwargs):
+        global DECODE
+        before=DECODE;DECODE=True
+        try:return original_deferred(m,*args,**kwargs)
+        finally:DECODE=before
+    def tree(m,*args,**kwargs):
+        global DECODE
+        before=DECODE;DECODE=True
+        try:return original_tree(m,*args,**kwargs)
+        finally:DECODE=before
     MoERef.packed_forward=packed
     GreedyEngineRef.forward=forward
+    GreedyEngineRef.verify_deferred=deferred
+    GreedyEngineRef.verify_tree=tree
     BatchMTPModel.verify=batch
 
 class ModeBanks:

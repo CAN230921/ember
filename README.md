@@ -63,6 +63,24 @@ stops the container if free RAM drops below 20 GiB or swap grows too fast.
 
 The server listens on port 8000 in the container and requires `Authorization: Bearer <key>`. Endpoints: `/v1/models`, `/v1/chat/completions` (streaming and tools), `/v1/scheduler`.
 
+### Optional tree speculation
+
+MTP remains the default. Select the experimental best-first tree backend at startup:
+
+```bash
+SPECULATION=tree MODEL_DIR=... DFLASH_DIR=... KEY_FILE=... bash scripts/run_docker.sh
+```
+
+Use `SPECULATION=mtp` to select the original backend on the next start. Direct
+entrypoint users can set `SPARK_SPECULATION=tree` or pass `--speculation tree`
+with `SPARK_EXECUTION_MODE=continuous_mtp` and their usual model environment.
+`/health` and `/v1/scheduler` report the selected mode.
+
+Tree mode retains streaming, tools, reasoning controls, paired prefill-cache
+reuse and cancellation. Its private lanes run cooperatively, without GPU batch
+verification; four-way full-context capacity has not been established. See
+[implementation and validation](docs/TREE-VERIFICATION.md).
+
 ## Layout
 
 ```

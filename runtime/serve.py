@@ -48,7 +48,9 @@ def install():
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check-install',action='store_true',help='Install patches and exit without loading weights or serving')
+    parser.add_argument('--speculation',choices=('mtp','tree'),help='Startup decoding strategy; tree is experimental, default mtp')
     args=parser.parse_args()
+    if args.speculation is not None:os.environ['SPARK_SPECULATION']=args.speculation
     result=install()
     print('OPTIMIZERS_INSTALLED',json.dumps(result),flush=True)
     if args.check_install:return

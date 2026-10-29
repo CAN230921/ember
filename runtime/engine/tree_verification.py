@@ -54,7 +54,7 @@ class TreeVerification:
                 layers=[]
                 for layer in result.layers:
                     attention=layer.attention
-                    if getattr(attention,'tree_view',False):
+                    if getattr(attention,'tree_view',False) or getattr(attention,'graph_view',False):
                         attention=GDNState(attention.conv.clone(),attention.recurrent.clone())
                     layers.append(DecoderState(attention,layer.ple))
                 result=EngineState(layers,list(result.tokens))
@@ -73,7 +73,7 @@ class TreeVerification:
 
 
 @torch.no_grad()
-def verify_tree_reference(engine,tree,state):
+def verify_tree_reference(engine,tree,state,observer=None):
     if not isinstance(tree,CandidateTree):raise TypeError('Expected CandidateTree')
     paths=tree.paths()
     if len(paths)>4:raise ValueError('Reference verifier supports at most four leaves')
@@ -85,8 +85,10 @@ def verify_tree_reference(engine,tree,state):
     engine.discard_verification()
     ids=[[tree.tokens[n] for n in path] for path in paths]
     if len(paths)==1:
-        outputs=[engine.verify_tokens(ids[0],state,lazy_prefixes=True)]
+        outputs=[engine.verify_tokens(ids[0],state,lazy_prefixes=True,
+            **({'observer':observer} if observer is not None else {}))]
     else:
+        if observer is not None:raise ValueError('Reference observers require one linear path')
         if not hasattr(engine,'_tree_reference_model'):
             engine._tree_reference_model=BatchMTPModel(engine)
         states=[EngineState(list(state.layers),list(state.tokens)) for _ in paths]

@@ -11,7 +11,9 @@
 #   MODEL_CONFIG  config.json overriding the checkpoint's (e.g. Top10 + shared expert)
 #   WORKSPACE     writable directory for logs, Triton cache and optimizer output
 #   PORT (8000)   BIND (127.0.0.1)   NAME (ember)   ACTIVE (4)
+#   SPECULATION (mtp)  set tree for experimental best-first tree decoding
 set -euo pipefail
+case "${SPECULATION:-mtp}" in mtp|tree) ;; *) echo 'SPECULATION must be mtp or tree' >&2; exit 1 ;; esac
 : "${IMAGE:?}" "${MODEL_DIR:?}" "${DFLASH_DIR:?}" "${KEY_FILE:?}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 workspace="${WORKSPACE:-$repo/workspace}"
@@ -42,6 +44,7 @@ cid="$(docker run -d --name "${NAME:-ember}" --label io.ember.engine=true --rest
   -e TRITON_CACHE_DIR=/workspace/cache/triton -e SPARK_LAB_DIR=/lab \
   -e SPARK_KEY_FILE=/secrets/api.key -e SPARK_API_AUDIT=/workspace/logs/api/requests.jsonl \
   -e SPARK_EXECUTION_MODE=continuous_mtp -e SPARK_MTP_BATCH=1 \
+  -e SPARK_SPECULATION="${SPECULATION:-mtp}" \
   -e SPARK_MAX_ACTIVE="${ACTIVE:-4}" -e SPARK_MAX_QUEUED=1 \
   -e SPARK_MAX_CONTEXT=262144 -e SPARK_MAX_OUTPUT=0 -e SPARK_TOTAL_CONTEXT=1048576 \
   -e SPARK_PREPARE_WORKERS=2 -e SPARK_PREFILL_CHUNK=2048 -e SPARK_QUEUE_TIMEOUT_SECONDS=120 \

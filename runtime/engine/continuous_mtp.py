@@ -261,6 +261,7 @@ class MTPSession:
 
 
 class ContinuousMTPRunner:
+    session_type=MTPSession
     def __init__(self, engine, draft, cache=None, *, draft_tokens='adaptive',
                  policy_factory=None, low_sync=True):
         if draft_tokens not in (1, 2, 'adaptive'):
@@ -287,7 +288,7 @@ class ContinuousMTPRunner:
               cache=True, should_cancel=None):
         policy = ((self.policy_factory or AdaptiveDraftDepth)()
                   if self.draft_tokens == 'adaptive' else None)
-        session = MTPSession(ids, budget, eos, chunk_size, on_tokens, on_progress,
+        session = self.session_type(ids, budget, eos, chunk_size, on_tokens, on_progress,
                              should_cancel, self.draft_tokens, policy, self.low_sync)
         session.prefill_memory = memory_summary(self.prefill_allocator.enabled,self.prefill_allocator.threshold_bytes)
         session.cache_enabled = cache

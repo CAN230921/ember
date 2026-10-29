@@ -125,9 +125,13 @@ if DRAFT_TOKENS not in (1,2,"adaptive"):raise ValueError("Invalid MTP draft dept
 
 
 class Runtime:
-    def __init__(self,mode=None,max_active=None,max_queued=None,total_context=None,prepare_workers=None,mtp_batch=None):
+    def __init__(self,mode=None,max_active=None,max_queued=None,total_context=None,prepare_workers=None,mtp_batch=None,speculation=None):
         self.mode=mode or os.environ.get('SPARK_EXECUTION_MODE','serial_mtp')
         if self.mode not in ('serial_mtp','continuous_greedy','continuous_mtp'):raise ValueError('Unknown execution mode')
+        from speculation import settings
+        self.speculation=settings(speculation)
+        if self.speculation['mode']=='tree' and self.mode!='continuous_mtp':
+            raise ValueError('Tree speculation requires continuous_mtp mode')
         self.continuous=self.mode!='serial_mtp'
         self.mtp_enabled=self.mode!='continuous_greedy'
         batch_flag=os.environ.get('SPARK_MTP_BATCH','0')
@@ -378,13 +382,18 @@ class Runtime:
             self.batch_runner=GreedyBatchRunner(self.engine,self.prefix_cache)
         elif self.mode=='continuous_mtp':
             from engine.continuous_mtp import ContinuousMTPRunner
-            if self.mtp_batch:
+            tree_options={}
+            if self.speculation['mode']=='tree':
+                from engine.tree_runner import TreeMTPRunner
+                ContinuousMTPRunner=TreeMTPRunner
+                tree_options=dict(tree_policy=self.speculation['policy'],tree_kernel=self.speculation['gdn_kernel'])
+            elif self.mtp_batch:
                 from engine.batched_mtp import BatchedMTPRunner
                 ContinuousMTPRunner=BatchedMTPRunner
             from engine.speculative_policy import CostAwareDraftDepth
             self.batch_runner=ContinuousMTPRunner(self.engine,self.draft,self.prefix_cache,
                 draft_tokens=DRAFT_TOKENS,
-                policy_factory=CostAwareDraftDepth if self.mtp_policy=='cost' else None)
+                policy_factory=CostAwareDraftDepth if self.mtp_policy=='cost' else None,**tree_options)
         if QSA_PREFILL_MODE not in ('packed','predecoded'):raise ValueError('Unknown SM121 QSA prefill mode.')
         for layer in self.engine.layers:
             if layer.layer_type=='full_attention':layer.attention.prefill_mode=QSA_PREFILL_MODE
@@ -429,8 +438,9 @@ class Runtime:
                     queue_timeout_seconds=self.queue_timeout,max_pending_requests=self.max_active+self.max_queued,
                     execution_mode=self.mode,max_active_requests=self.max_active,max_queued_requests=self.max_queued,
                     mtp_enabled=self.mtp_enabled,owned_graph_cache=self.continuous,
-                    scheduling='decode_priority_batch' if self.mtp_batch else 'cooperative_round_robin' if self.mode=='continuous_mtp' else self.mode,
-                    batched_verification=self.mtp_batch,mtp_policy=self.mtp_policy if self.mtp_enabled else None,
+                    scheduling='cooperative_round_robin' if self.speculation['mode']=='tree' else 'decode_priority_batch' if self.mtp_batch else 'cooperative_round_robin' if self.mode=='continuous_mtp' else self.mode,
+                    batched_verification=self.mtp_batch and self.speculation['mode']!='tree',speculation=self.speculation,
+                    mtp_policy=self.mtp_policy if self.mtp_enabled else None,
                     batch_execution=self.batch_runner.snapshot() if self.mtp_batch else None,
                     experimental=self.mode=='continuous_mtp',
                     moe_strategy=strategy,actual_moe_strategy_counts=self.moe_strategy.observed if self.moe_strategy else {},
@@ -825,7 +835,8 @@ def create_app(runtime,key):
 
     @app.get('/health')
     async def health():
-        return JSONResponse(dict(status='ok' if runtime.ready else 'unavailable',model=MODEL),status_code=200 if runtime.ready else 503)
+        return JSONResponse(dict(status='ok' if runtime.ready else 'unavailable',model=MODEL,
+            speculation=getattr(runtime,'speculation',dict(mode='mtp'))),status_code=200 if runtime.ready else 503)
 
     @app.get('/v1/models')
     async def models(request:Request):
@@ -842,7 +853,9 @@ def create_app(runtime,key):
         authorize(request)
         scheduler=getattr(runtime,'scheduler',None)
         mode=getattr(runtime,'mode','serial_mtp')
+        speculation=getattr(runtime,'speculation',dict(mode='mtp'))
         return dict(execution_mode=mode,
+            speculation=speculation,
             context_window_per_request=getattr(runtime,'max_context',MAX_CONTEXT),
             max_output_tokens=getattr(runtime,'max_output',MAX_OUTPUT) or None,
             output_budget_policy=getattr(runtime,'output_budget_policy',
@@ -852,8 +865,8 @@ def create_app(runtime,key):
             prepare_workers=getattr(runtime,'prepare_workers',0),
             mtp_enabled=mode in ('serial_mtp','continuous_mtp'),
             reasoning_efforts=REASONING_EFFORTS if mode=='continuous_mtp' else {},
-            scheduling='decode_priority_batch' if getattr(runtime,'mtp_batch',False) else 'cooperative_round_robin' if mode=='continuous_mtp' else mode,
-            batched_verification=getattr(runtime,'mtp_batch',False),experimental=mode=='continuous_mtp',
+            scheduling='cooperative_round_robin' if speculation['mode']=='tree' else 'decode_priority_batch' if getattr(runtime,'mtp_batch',False) else 'cooperative_round_robin' if mode=='continuous_mtp' else mode,
+            batched_verification=getattr(runtime,'mtp_batch',False) and speculation['mode']!='tree',experimental=mode=='continuous_mtp',
             **(scheduler.snapshot() if scheduler else dict(max_active=1,
                 max_queued=getattr(runtime,'max_queued',1),events=[])))
 

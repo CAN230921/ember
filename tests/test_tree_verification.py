@@ -71,17 +71,20 @@ def test_changed_base_and_superseded_transactions_are_rejected():
     new.discard()
 
 
-def test_committed_tree_bank_state_releases_all_rejected_node_storage():
+@pytest.mark.parametrize('view',['tree_view','graph_view'])
+@pytest.mark.parametrize('lazy',[False,True])
+def test_committed_tree_bank_state_releases_all_rejected_node_storage(view,lazy,monkeypatch):
+    monkeypatch.setattr('engine.batch_mtp_model.LAZY_CLONE',lazy)
     from engine.ops.gdn import GDNState
     engine,base,tree=fixture();tx=verify_tree_reference(engine,tree,base)
     conv=torch.arange(15.).reshape(5,3);rec=torch.arange(20.).reshape(5,4)
     for path,(_,state,_) in zip(tx.paths,tx.outputs):
         for node,prefix in zip(path,state.prefixes):
-            value=GDNState(conv[node],rec[node]);value.tree_view=True
+            value=GDNState(conv[node],rec[node]);setattr(value,view,True)
             prefix.layers=[DecoderState(value)]
     updated=tx.commit(tx.select(8));attention=updated.layers[0].attention
     assert attention.conv.tolist()==[12.,13.,14.]
     assert attention.conv.untyped_storage().nbytes()==12
     assert attention.recurrent.untyped_storage().nbytes()==16
     conv.zero_();rec.zero_()
-    assert attention.conv.tolist()==[12.,13.,14.] and not hasattr(attention,'tree_view')
+    assert attention.conv.tolist()==[12.,13.,14.] and not hasattr(attention,view)

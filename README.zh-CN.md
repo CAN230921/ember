@@ -60,6 +60,23 @@ MODEL_DIR=... DFLASH_DIR=... KEY_FILE=... bash scripts/run_docker.sh
 
 容器内监听 8000 端口，请求需带 `Authorization: Bearer <key>`。接口：`/v1/models`、`/v1/chat/completions`（流式与工具）、`/v1/scheduler`。
 
+### 可选整树投机
+
+默认继续使用 MTP。在启动时选择实验性的 best-first 整树后端：
+
+```bash
+SPECULATION=tree MODEL_DIR=... DFLASH_DIR=... KEY_FILE=... bash scripts/run_docker.sh
+```
+
+下次启动设为 `SPECULATION=mtp` 可恢复原后端。直接运行入口时，可设置
+`SPARK_SPECULATION=tree` 或传入 `--speculation tree`，同时保留
+`SPARK_EXECUTION_MODE=continuous_mtp` 和原模型环境。`/health` 与 `/v1/scheduler`
+会显示所选模式。
+
+树模式保留流式、工具、思考控制、成对 prefill 缓存复用和取消流程。多请求使用私有
+状态合作式逐路执行，尚无 GPU 验证合批；四路满上下文容量未验收。
+详见[实现与验证记录](docs/TREE-VERIFICATION.md)。
+
 ## 测试
 
 ```bash

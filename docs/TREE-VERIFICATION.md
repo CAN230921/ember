@@ -1,8 +1,9 @@
 # Experimental tree verification
 
-This work is on `codex/gdn-two-phase-verify`, based on `908ceb6`. The accepted
-serving runner continues to use its original verifier. Importing the new
-modules or running `serve` does not enable tree generation.
+The default serving runner uses its original MTP verifier. Select tree
+speculation explicitly at startup with `SPECULATION=tree` in the Docker
+launcher, or `SPARK_SPECULATION=tree` / `--speculation tree` in the direct
+entrypoint. The direct entrypoint requires `continuous_mtp` mode and DFlash2.
 
 The scheduling idea was reviewed against [Uzu's source](https://github.com/trymirai/uzu/tree/f1231705cc7e26a205819da7c78e0110cfbac306).
 The implementation uses Ember's existing CUDA arithmetic and current target
@@ -51,8 +52,10 @@ by the target checkpoint's remaining context; the final legal anchor can use
 a root-only tree.
 
 The tree path retains per-node GDN caches and does **not** yet use the linear
-path's deferred memory saving. The rest of the tree backend is eager. It has
-no merged tree CUDA Graph and no production scheduler or HTTP integration.
+path's deferred memory saving. Branched verification is eager, with no merged
+tree CUDA Graph. Serving reuses the original linear graph verifier for an
+unbranched chain. Private lanes run cooperatively on the existing model-owner
+scheduler; no multi-lane tree GPU batch is implemented.
 
 ## Numerical and ownership contracts
 
@@ -155,3 +158,33 @@ The code-module response needed 30 verification rounds instead of the beam
 tree's 35. The short function needed four instead of six. This is one loaded
 process and a small fixed workload, so the result is experimental. No service
 or release was promoted, and `release_approved=false`.
+
+## Serving switch validation, 2026-10-30
+
+The launcher defaults to `SPECULATION=mtp`; `SPECULATION=tree` selects
+best-first tree decoding. Change modes on the next start, using a free container
+name and the same model environment. Existing containers are retained by the
+launcher. `/health`, `/v1/scheduler` and the startup receipt identify the mode;
+request audits identify tree rounds and their node-consumption counts.
+
+Tree prefill retains the existing paired target/MTP checkpoint cache. Decode
+keeps private target/DFlash state for each request and does not enter an MTP
+fallback with stale draft state. EOS, output/reasoning limits and protocol
+stops use the existing request control. Cancellation discards uncommitted
+verification; close releases the per-request DFlash context. Selected graph
+views are detached even with lazy cloning disabled.
+
+719 local CPU tests passed (13 tokenizer tests skipped). With the exact current
+checkpoint, two separately started reference-image containers passed 14 MTP
+and 16 tree HTTP checks: authentication, JSON/SSE, virtual tool workflows,
+four concurrent private requests, repeated-prefix cache hits of 2,048 tokens,
+reasoning-budget controls, TCP disconnect cancellation and recovery. Audits
+confirmed actual tree decode and forced reasoning tokens. Both containers
+stopped with exit 0; the GPU was released and the unrelated service was retained.
+
+These HTTP runs are functional smoke tests, not a new throughput study. The
+earlier throughput tables use an in-process generation harness; HTTP uses a
+different scheduling path and first requests can include graph capture.
+Do not use those tables as the measured speedup of this service switch.
+Full model quality, broad workloads, queue saturation and four full 262K
+contexts remain unverified. `release_approved=false`.

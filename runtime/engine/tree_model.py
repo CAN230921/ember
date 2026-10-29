@@ -84,12 +84,18 @@ def verify_tree(engine,tree,state,observer=None):
     start=len(state.tokens)
     if max(tree.positions(start))>=engine.config['max_position_embeddings']:
         raise ValueError('Tree depth exceeds context limit')
+    if (getattr(engine,'tree_chain_fastpath',False) and len(tree.tokens)>1 and
+            tree.parents==(-1,)+tuple(range(len(tree.tokens)-1))):
+        from .tree_verification import verify_tree_reference
+        tx=verify_tree_reference(engine,tree,state,observer)
+        tx.implementation='linear_chain_graphs'
+        return tx
     engine.discard_verification()
     device=engine.embedding.device
     tokens=torch.tensor(tree.tokens,device=device,dtype=torch.long)
     positions=torch.tensor(tree.positions(start),device=device,dtype=torch.long)
-    parents=(torch.tensor(tree.parents,device=device,dtype=torch.int32)
-             if os.environ.get('SPARK_TREE_GDN_KERNEL')=='1' else None)
+    kernel=getattr(engine,'tree_gdn_kernel',os.environ.get('SPARK_TREE_GDN_KERNEL')=='1')
+    parents=torch.tensor(tree.parents,device=device,dtype=torch.int32) if kernel else None
     pending=(engine.embedding[tokens].repeat(1,engine.config['hc_count']),None,None)
     node_layers=[[] for _ in tree.tokens]
     for index,(layer,base) in enumerate(zip(engine.layers,state.layers)):

@@ -40,7 +40,10 @@ class DecoderLayerRef(nn.Module):
             config.get('norm_topk_prob',True),activation_backend=activation_backend,expert_backend=expert_backend,router_backend=router_backend,moe_finalize=moe_finalize)
 
     def forward(self,hidden_states,positions,prev_block_output=None,prev_injection=None,
-                input_ids_cpu=None,context_cpu=None,state=None,prefill=False,position_start=None,return_prefixes=False):
+                input_ids_cpu=None,context_cpu=None,state=None,prefill=False,position_start=None,return_prefixes=False,
+                defer_gdn=False):
+        if defer_gdn and (prefill or not return_prefixes):
+            raise ValueError('Deferred GDN requires decode verification')
         state=state or DecoderState()
         if (prev_block_output is None)!=(prev_injection is None):
             raise ValueError('Pending block output/injection must arrive together')
@@ -61,7 +64,13 @@ class DecoderLayerRef(nn.Module):
         else:
             residual,mixed,injection=self.attn_hc.combine_and_mix(hidden_states,prev_block_output,prev_injection,return_prefixes)
         if self.layer_type=='linear_attention':
-            attention_result=self.attention(mixed,state.attention,prefill,return_prefixes)
+            if defer_gdn:
+                from .ops.gdn_deferred import verify_gdn
+                qkvz,ba=self.attention.project(mixed,preserve_rows=True)
+                tape=verify_gdn(self.attention,qkvz,ba,state.attention)
+                attention_result=(self.attention.out_linear(tape.output),tape,[tape]*len(mixed))
+            else:
+                attention_result=self.attention(mixed,state.attention,prefill,return_prefixes)
         else:
             attention_result=self.attention(mixed,positions,state.attention,position_start=position_start,return_prefixes=return_prefixes,prefill_chunk=prefill)
         attention,attention_state=attention_result[:2]

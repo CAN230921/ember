@@ -257,7 +257,7 @@ class DFlashDraft:
         ctx.length += n; ctx.written += n
 
     # ---- proposal ----
-    def _propose_core(self, ctx, anchor, start):
+    def _propose_core(self, ctx, anchor, start, return_lattice=False):
         B, H, NH, KVH, D, W = self.B, self.H, self.NH, self.KVH, self.D, self.W
         qd, kd, win = NH*D, KVH*D, ctx.window
         ids = torch.cat((anchor, self.mask_ids))
@@ -298,6 +298,8 @@ class DFlashDraft:
         pred_ids = torch.cat((ids[:1, None].expand(1, self.TOPK), cand[:-1]), 0)
         preds = W['candidate_selector.predecessor_codebook'][pred_ids].float()                     # [s, K, r]
         score = vals_[:, None, :]+torch.einsum('lpr,lcr->lpc', preds*hp[:, None], keys_)
+        if return_lattice:
+            return cand,score
         ix = score[0, 0].argmax(-1); path = [ix]
         for e in range(1, B-1):
             # index_select keeps the walk on the device (a 0-d tensor subscript would sync to the host)
@@ -323,3 +325,27 @@ class DFlashDraft:
             return out
         ctx.prop.replay(); self.replays += 1
         return ctx.prop_out.tolist()
+
+    @torch.no_grad()
+    def propose_tree(self,ctx,anchor,node_budget=8,policy=None):
+        """Explicit reference proposal; eager lattice and CPU beam construction.
+
+        Existing linear proposal graphs and weights are unchanged. This path
+        synchronizes to transfer the small candidate lattice, so it is not a
+        claim of a GPU-resident or accelerated tree proposer.
+        """
+        from .candidate_tree import CandidateTree,tree_from_lattice,tree_from_lattice_best_first
+        policy=os.environ.get('SPARK_TREE_POLICY','beam') if policy is None else policy
+        if policy not in ('beam','best_first'):raise ValueError('Unknown tree proposal policy')
+        if type(node_budget) is not int or not 1<=node_budget<=8:raise ValueError('Invalid tree node budget')
+        depth=self.engine.config['max_position_embeddings']-ctx.length-1
+        if depth<0:raise ValueError('Anchor exceeds target context limit')
+        self.flush(ctx)
+        if node_budget==1 or depth==0:return CandidateTree((int(anchor),),(-1,))
+        ctx.anchor.fill_(int(anchor));ctx.start.fill_(ctx.length)
+        candidates,scores=self._propose_core(ctx,ctx.anchor,ctx.start,return_lattice=True)
+        if policy=='best_first':
+            return tree_from_lattice_best_first(int(anchor),candidates.tolist(),scores.tolist(),
+                node_budget=node_budget,max_depth=min(7,self.B-1,depth),max_leaves=4)
+        return tree_from_lattice(int(anchor),candidates.tolist(),scores.tolist(),
+            node_budget=node_budget,max_depth=min(3,self.B-1,depth),width=2)

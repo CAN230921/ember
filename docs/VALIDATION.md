@@ -1,5 +1,8 @@
 # Validation — 0.1.2
 
+The opt-in experimental branch has separate [tree-verification evidence](TREE-VERIFICATION.md).
+It is not part of the v0.1.2 release results below.
+
 Checks run on 2026-10-28 on a DGX Spark (SM121) and on macOS.
 
 | Check | Result |

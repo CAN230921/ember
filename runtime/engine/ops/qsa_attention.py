@@ -1,7 +1,7 @@
 """Independent QSA runtime and correctness reference for this checkpoint.
 
 No vLLM imports. Uses FlashInfer only for standalone NVFP4 cache quantization.
-Torch math remains available as a diagnostic backend. The accepted Triton path
+Torch math remains available as a diagnostic backend. The default Triton path
 uses sparse selection, hardware NVFP4 attention and immutable paged KV; each
 request owns its QSA history while the batch engine shares large projections.
 """

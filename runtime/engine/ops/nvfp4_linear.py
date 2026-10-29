@@ -4,7 +4,7 @@ Weights come from the offline GPTQ files (code2 = 2*E2M1 value as int8, scale as
 global_scale). They are packed into FlashInfer's canonical layout (two codes per byte, low
 nibble = even K, 128x4-swizzled scales) and run with mm_bf16_fp4(backend='cute-dsl'):
 out = x @ (code * scale * global_scale).T with BF16 activations (no activation quantization).
-This changes numerics versus the FP8 path and requires quality acceptance before use.
+This changes numerics versus the FP8 path.
 """
 import torch
 

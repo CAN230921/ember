@@ -366,7 +366,7 @@ class ContinuousScheduler:
 
     def _decode_order(self, ready):
         if self.max_active <= 2:
-            return ready  # Preserve the accepted single/dual-request order.
+            return ready  # Keep the single/dual-request order.
         order = list(ready)
         # Prefer the previous leader's first surviving ready successor. IDs
         # survive slot cleanup, so finishing/cancelling a leader or successor

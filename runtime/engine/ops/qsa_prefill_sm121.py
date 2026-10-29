@@ -44,7 +44,7 @@ def unpack_history(packed):
 
 @tr.jit
 def _half_bytes(address,valid):
-    # Keep byte-source dot operands, as in the accepted FP4 conversion.
+    # Keep byte-source dot operands, as in the FP4 conversion.
     # Native FP16 loads make Triton choose kWidth=2 instead of kWidth=4,
     # changing MMA accumulation order even with identical operand bits.
     low=tl.load(address,valid,0).to(tl.uint16)

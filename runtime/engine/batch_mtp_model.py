@@ -2,9 +2,8 @@
 
 One to four lanes, each one to three contiguous positions. Large target
 projections and expert calls share token rows; attention histories never do.
-New MoE row counts use the existing non-fused vendor heuristic, not invented
-entries in the screened M1/M2/M3 tactic cache. This opt-in path requires GPU
-numerical/quality/performance acceptance before deployment.
+New MoE row counts use the vendor's non-fused heuristic rather than new
+entries in the M1/M2/M3 tactic cache. This path is opt-in.
 """
 import os
 
@@ -38,7 +37,7 @@ def hc_rows(module, method, tensors, sections):
     if getattr(module, 'fused_rows', None) and module.fused_rows(sections[-1].stop):
         # Every row keeps its own 16-row tile arithmetic; one weight traversal serves all lanes.
         return getattr(module, method)(*tensors, preserve_rows=True)
-    # Preserve the screened per-sequence HC projection reduction layout.
+    # Keep the per-sequence HC projection reduction layout.
     rows = [getattr(module, method)(*[t[s] for t in tensors], preserve_rows=True) for s in sections]
     return tuple(torch.cat([r[i] for r in rows]) if rows[0][i] is not None else None
                  for i in range(len(rows[0])))
@@ -183,7 +182,7 @@ class BatchMTPModel:
                     max_batch=4, max_time=3, head_row_limit=3,
                     retained_graph_layouts=len(self.layouts), max_graph_layouts=self.max_graph_layouts,
                     eager_layout_fallbacks=self.eager_layout_fallbacks,
-                    new_moe_rows='vendor_nonfused_heuristic_requires_gpu_acceptance')
+                    new_moe_rows='vendor_nonfused_heuristic')
 
     def layer(self, index, pending, states, sections, positions=None, ids=None, contexts=None):
         layer = self.engine.layers[index]
@@ -316,7 +315,7 @@ class BatchMTPDraft:
             # so one shared traversal of the BF16 draft weights serves every lane.
             hidden = draft.fuse_inputs([t for ids in input_ids for t in ids], torch.cat(list(multi)))
         else:
-            # Keep the BF16 fusion's screened per-sequence reduction arithmetic.
+            # Keep the BF16 fusion's per-sequence reduction arithmetic.
             hidden = torch.cat([draft.fuse_inputs(ids, value) for ids, value in zip(input_ids, multi)])
         positions = torch.tensor([p for s, ids in zip(states, input_ids) for p in range(s.length, s.length+len(ids))],
                                  device=hidden.device)

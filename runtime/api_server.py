@@ -155,7 +155,7 @@ class Runtime:
         if not 1<=self.max_active<=active_limit or not 0<=self.max_queued<=32:raise ValueError('Invalid active/queued capacity')
         if self.mode=='serial_mtp' and self.max_active!=1:raise ValueError('Serial MTP requires one active slot')
         if self.continuous and PREFILL_CHUNK!=2048:
-            raise ValueError('Continuous modes preserve the accepted 2048-token prefill boundary')
+            raise ValueError('Continuous modes require a 2048-token prefill chunk')
         self.total_context=int(total_context if total_context is not None else os.environ.get(
             'SPARK_TOTAL_CONTEXT',str(self.max_active*self.max_context)))
         self.context_pool=ContextPool(self.total_context,self.max_context)

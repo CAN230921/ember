@@ -1,4 +1,4 @@
-"""Screened GB10 NVFP4 deterministic expert strategy namespace."""
+"""Deterministic GB10 NVFP4 expert strategy namespace."""
 import hashlib
 from pathlib import Path
 import torch

@@ -1,5 +1,5 @@
 // Three target-verification rows share the original packed INT8 weights.
-// Each row keeps the accepted single-row FMA and eight-part reduction order.
+// Each row keeps the single-row FMA and eight-part reduction order.
 #include <cuda_runtime.h>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
